@@ -1,5 +1,5 @@
 # CobraLang Programming Language and IDE
-CobraLang is a Python-like programming language designed for simplicity and readability. It offers a familiar structure, and also includes a custom IDE designed for CobraLang.
+CobraLang is a Python-like programming language designed for simplicity and readability. It offers a familiar structure, and also includes a custom IDE designed for CobraLang, in which you can create `.cl` files.
 
 ## Table of Contents
 1. [Keywords and Syntax](#keywords-and-syntax)
