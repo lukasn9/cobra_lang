@@ -238,7 +238,7 @@ Below is a list of CobraLang keywords, their Python equivalents, and examples.
 **CobraLang**
 ```plaintext
 define greet(name):
-    output "Hello, " add name
+    output "Hello"
 
 repeat i from 1 to 3:
     greet("Alice")

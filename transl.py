@@ -1,4 +1,5 @@
 import re
+import sys
 
 def cl_to_py(cobralang_code):
     translations = [
@@ -52,3 +53,6 @@ def translate(file_path, debug=False):
         print("Translated Python Code:")
         print(translated_code)
     exec(translated_code)
+
+if __name__ == "__main__":
+    translate(sys.argv[1])
