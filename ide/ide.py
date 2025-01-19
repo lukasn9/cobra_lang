@@ -1,10 +1,11 @@
 from PySide6.QtWidgets import (QMainWindow, QApplication, QVBoxLayout, QWidget,
                               QPushButton, QFileDialog, QTextEdit, QTreeView, QFileSystemModel, 
-                              QSplitter, QToolBar, QLabel, QPlainTextEdit)
-from PySide6.QtGui import QFont, QAction, QKeySequence, QSyntaxHighlighter, QTextCharFormat, QColor
+                              QSplitter, QToolBar, QLabel, QPlainTextEdit, QLineEdit, QDialog, QGridLayout, QLineEdit, QPushButton)
+from PySide6.QtGui import QFont, QAction, QKeySequence, QSyntaxHighlighter, QTextCharFormat, QColor, QTextCursor
 from PySide6.QtCore import Qt, QDir, QSize
 import sys
 import subprocess
+import os
 
 class SyntaxHighlighter(QSyntaxHighlighter):
     def __init__(self, parent=None):
@@ -34,7 +35,7 @@ class SyntaxHighlighter(QSyntaxHighlighter):
             text_format = QTextCharFormat()
             text_format.setForeground(QColor(color))
             self.highlighting_rules[word] = text_format
-    
+
     def highlightBlock(self, text):
         for word, format in self.highlighting_rules.items():
             index = text.find(word)
@@ -50,6 +51,73 @@ class Button(QPushButton):
         self.setFixedHeight(32)
         self.setFont(QFont("Inter", 9))
 
+class FindReplaceDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Find")
+        self.setModal(True)
+
+        layout = QGridLayout()
+        self.find_input = QLineEdit()
+        self.replace_input = QLineEdit()
+        self.find_button = QPushButton("Find")
+        self.replace_button = QPushButton("Replace")
+        self.replace_all_button = QPushButton("Replace All")
+
+        layout.addWidget(QLabel("Find:"), 0, 0)
+        layout.addWidget(self.find_input, 0, 1)
+        layout.addWidget(QLabel("Replace:"), 1, 0)
+        layout.addWidget(self.replace_input, 1, 1)
+        layout.addWidget(self.find_button, 2, 0)
+        layout.addWidget(self.replace_button, 2, 1)
+        layout.addWidget(self.replace_all_button, 3, 1)
+        self.setLayout(layout)
+
+        self.find_button.clicked.connect(self.find_next)
+        self.replace_button.clicked.connect(self.replace)
+        self.replace_all_button.clicked.connect(self.replace_all)
+
+        self.editor = parent.editor
+
+    def find_next(self):
+        search_text = self.find_input.text()
+        if not search_text:
+            return
+
+        cursor = self.editor.textCursor()
+        document = self.editor.document()
+        cursor = document.find(search_text, cursor)
+
+        if cursor.isNull():
+            start_cursor = QTextCursor(document)
+            cursor = document.find(search_text, start_cursor)
+
+        if cursor.isNull():
+            self.terminal.appendPlainText(f"'{search_text}' not found.")
+        else:
+            self.editor.setTextCursor(cursor)
+
+    def replace(self):
+        cursor = self.editor.textCursor()
+        if cursor.hasSelection():
+            cursor.insertText(self.replace_input.text())
+
+    def replace_all(self):
+        word = self.find_input.text()
+        replace_text = self.replace_input.text()
+        if not word:
+            return
+        cursor = self.editor.textCursor()
+        cursor.movePosition(cursor.Start)
+        while True:
+            cursor = self.editor.document().find(word, cursor)
+            if cursor.isNull():
+                break
+            cursor.beginEditBlock()
+            cursor.insertText(replace_text)
+            cursor.endEditBlock()
+        self.editor.setTextCursor(cursor)
+
 class CobraLangIDE(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -62,6 +130,7 @@ class CobraLangIDE(QMainWindow):
 
         self.current_file_path = None
         self.highlighter = None
+        self.current_directory = os.getcwd()
         self.setup_ui()
 
     def setup_ui(self):
@@ -127,9 +196,13 @@ class CobraLangIDE(QMainWindow):
         self.editor.setFont(QFont("JetBrains Mono", 12))
         self.editor.setLineWrapMode(QTextEdit.NoWrap)
         self.editor.setTabStopDistance(self.editor.fontMetrics().horizontalAdvance(" ") * 4)
+        self.editor.setShortcutEnabled(True)
+        self.editor.setFocusPolicy(Qt.StrongFocus)
+        self.editor.setContextMenuPolicy(Qt.DefaultContextMenu)
         editor_layout.addWidget(self.editor)
 
         self.highlighter = SyntaxHighlighter()
+        self.highlighter.setDocument(self.editor.document())
 
         v_splitter.addWidget(editor_container)
 
@@ -141,7 +214,12 @@ class CobraLangIDE(QMainWindow):
         terminal_header.setFont(QFont("Inter", 10))
         terminal_header.setContentsMargins(10, 5, 10, 5)
         terminal_layout.addWidget(terminal_header)
-        
+
+        self.terminal_input = QLineEdit()
+        self.terminal_input.setFont(QFont("JetBrains Mono", 11))
+        self.terminal_input.returnPressed.connect(self.execute_command)
+        terminal_layout.addWidget(self.terminal_input)
+
         self.terminal = QPlainTextEdit()
         self.terminal.setReadOnly(True)
         self.terminal.setFont(QFont("JetBrains Mono", 11))
@@ -152,6 +230,67 @@ class CobraLangIDE(QMainWindow):
 
         h_splitter.setSizes([250, 750])
         v_splitter.setSizes([600, 150])
+
+        self.editor.setFocus()
+
+        find_replace_action = QAction("Find and Replace", self)
+        find_replace_action.setShortcut(QKeySequence("Ctrl+H"))
+        find_replace_action.triggered.connect(self.show_find_replace)
+        self.addAction(find_replace_action)
+
+    def show_find_replace(self):
+        find_replace_dialog = FindReplaceDialog(self)
+        find_replace_dialog.exec()
+
+    def execute_command(self):
+        command = self.terminal_input.text().strip()
+        self.terminal_input.clear()
+        if command:
+            self.terminal.appendPlainText(f"> {command}")
+            try:
+                if command.startswith("cobra "):
+                    filename = command.split(" ", 1)[1]
+                    self.run_cobra(filename)
+                elif command.startswith("cd "):
+                    directory = command.split(" ", 1)[1]
+                    os.chdir(directory)
+                    self.current_directory = os.getcwd()
+                    self.terminal.appendPlainText(f"Changed directory to: {self.current_directory}")
+                elif command.startswith("mkdir "):
+                    directory = command.split(" ", 1)[1]
+                    os.mkdir(directory)
+                    self.terminal.appendPlainText(f"Directory created: {directory}")
+                elif command.startswith("rm "):
+                    target = command.split(" ", 1)[1]
+                    os.remove(target)
+                    self.terminal.appendPlainText(f"Removed: {target}")
+                elif command == "ls" or command == "dir":
+                    contents = "\n".join(os.listdir(self.current_directory))
+                    self.terminal.appendPlainText(contents)
+                elif command == "pwd":
+                    self.terminal.appendPlainText(self.current_directory)
+                else:
+                    result = subprocess.run(command, shell=True, capture_output=True, text=True)
+                    if result.stdout:
+                        self.terminal.appendPlainText(result.stdout)
+                    if result.stderr:
+                        self.terminal.appendPlainText(f"Error: {result.stderr}")
+            except Exception as e:
+                self.terminal.appendPlainText(f"Error: {e}")
+
+    def run_cobra(self, filename):
+        try:
+            if not os.path.isfile(filename):
+                self.terminal.appendPlainText(f"Error: File '{filename}' not found")
+                return
+            self.terminal.appendPlainText(f"Running: {filename}")
+            result = subprocess.run(["python3", "-m", "transl", filename], capture_output=True, text=True)
+            if result.stdout:
+                self.terminal.appendPlainText(result.stdout)
+            if result.stderr:
+                self.terminal.appendPlainText(f"Error: {result.stderr}")
+        except Exception as e:
+            self.terminal.appendPlainText(f"Error: {e}")
 
     def load_theme(self):
         return '''
@@ -282,12 +421,8 @@ class CobraLangIDE(QMainWindow):
             self.current_file_path = file_path
             self.filename_label.setText(f" {file_path}")
 
-            if file_path.endswith('.cl'):
-                if self.highlighter:
-                    self.highlighter.setDocument(self.editor.document())
-            else:
-                if self.highlighter:
-                    self.highlighter.setDocument(None)
+            if self.highlighter:
+                self.highlighter.setDocument(self.editor.document())
         except Exception as e:
             self.terminal.appendPlainText(f"Error opening file: {e}")
 
@@ -297,7 +432,7 @@ class CobraLangIDE(QMainWindow):
             self.load_file(file_path)
 
     def new_file(self):
-        file_path, _ = QFileDialog.getSaveFileName(self, "New File", QDir.homePath(), "*.*")
+        file_path, _ = QFileDialog.getSaveFileName(self, "New File", QDir.homePath(), ".cl")
         if file_path:
             try:
                 with open(file_path, 'w') as file:

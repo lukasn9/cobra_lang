@@ -3,17 +3,18 @@ CobraLang is a Python-like programming language designed for simplicity and read
 
 ## Table of Contents
 1. [Keywords and Syntax](#keywords-and-syntax)
-   1. [Function Definition](#function-definition)
-   2. [Output (Print)](#output-print)
-   3. [Conditional Statements](#conditional-statements)
-   4. [Loops](#loops)
-   5. [Loop Control](#loop-control)
-   6. [Return Value](#return-value)
-   7. [Logical Operators](#logical-operators)
-   8. [Membership Operators](#membership-operators)
-   9. [Equality and Comparison](#equality-and-comparison)
-   10. [Arithmetic Operators](#arithmetic-operators)
-   11. [Variable Assignment](#variable-assignment)
+   1. [Classes](#classes)
+   2. [Function Definition](#function-definition)
+   3. [Output (Print)](#output-print)
+   4. [Conditional Statements](#conditional-statements)
+   5. [Loops](#loops)
+   6. [Loop Control](#loop-control)
+   7. [Return Value](#return-value)
+   8. [Logical Operators](#logical-operators)
+   9. [Membership Operators](#membership-operators)
+   10. [Equality and Comparison](#equality-and-comparison)
+   11. [Arithmetic Operators](#arithmetic-operators)
+   12. [Variable Assignment](#variable-assignment)
 2. [Examples](#examples)
 3. [IDE](#ide)
 4. [Installation](#installation)
@@ -27,6 +28,18 @@ Below is a list of CobraLang keywords, their Python equivalents, and examples.
 `def greet(name):`  
 **CobraLang**  
 `define greet(name):`
+
+### Classes
+
+**Python**
+`def __init__`
+**CobraLang**
+`define _initialize`
+
+**Python**
+`self.name`
+**CobraLang**
+`own.name`
 
 ### Output (Print)
 
